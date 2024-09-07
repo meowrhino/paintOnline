@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint en línea mejorado</title>
+    <!-- Enlace a Font Awesome para los iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: width;
+            height: height;
+            z-index: 1;
+        }
+        .toolbar {
+            position: fixed;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3); /* Sombra añadida */
+            z-index: 10;
+        }
+        .toolbar button {
+            background: none;
+            border: none;
+            margin: 5px 0;
+            cursor: pointer;
+            position: relative;
+        }
+        .toolbar button .tooltip {
+            visibility: hidden;
+            width: 140px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            left: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .toolbar button:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        #colorPicker {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button id="clearCanvas">
+            <i class="fas fa-trash-alt fa-2x"></i>
+            <span class="tooltip">Limpiar lienzo</span>
+        </button>
+        <button id="colorButton">
+            <i class="fas fa-palette fa-2x"></i>
+            <span class="tooltip">Elegir color</span>
+        </button>
+        <input type="color" id="colorPicker" value="#000000">
+        <button id="increaseBrush">
+            <i class="fas fa-plus fa-2x"></i>
+            <span class="tooltip">Aumentar pincel</span>
+        </button>
+        <button id="decreaseBrush">
+            <i class="fas fa-minus fa-2x"></i>
+            <span class="tooltip">Disminuir pincel</span>
+        </button>
+        <button id="pencilButton">
+            <i class="fas fa-pencil-alt fa-2x"></i>
+            <span class="tooltip">Lápiz</span>
+        </button>
+        <button id="eraserButton">
+            <i class="fas fa-eraser fa-2x"></i>
+            <span class="tooltip">Borrador</span>
+        </button>
+        <button id="rectangleButton">
+            <i class="fas fa-square fa-2x"></i>
+            <span class="tooltip">Dibujar rectángulo</span>
+        </button>
+        <button id="circleButton">
+            <i class="fas fa-circle fa-2x"></i>
+            <span class="tooltip">Dibujar círculo</span>
+        </button>
+        <button id="textButton">
+            <i class="fas fa-font fa-2x"></i>
+            <span class="tooltip">Agregar texto</span>
+        </button>
+        <button id="airbrushButton">
+            <i class="fas fa-spray-can fa-2x"></i>
+            <span class="tooltip">Aerógrafo</span>
+        </button>
+        <button id="eyedropperButton">
+            <i class="fas fa-eye-dropper fa-2x"></i>
+            <span class="tooltip">Cuentagotas</span>
+        </button>
+        <button id="brushButton">
+            <i class="fas fa-paint-brush fa-2x"></i>
+            <span class="tooltip">Pincel</span>
+        </button>
+    </div>
+    <canvas id="paintCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearCanvasButton = document.getElementById('clearCanvas');
+        const colorButton = document.getElementById('colorButton');
+        const increaseBrushButton = document.getElementById('increaseBrush');
+        const decreaseBrushButton = document.getElementById('decreaseBrush');
+        const pencilButton = document.getElementById('pencilButton');
+        const eraserButton = document.getElementById('eraserButton');
+        const rectangleButton = document.getElementById('rectangleButton');
+        const circleButton = document.getElementById('circleButton');
+        const textButton = document.getElementById('textButton');
+        const airbrushButton = document.getElementById('airbrushButton');
+        const eyedropperButton = document.getElementById('eyedropperButton');
+        const brushButton = document.getElementById('brushButton');
+
+        let painting = false;
+        let currentTool = 'brush';
+        let brushSize = 5;
+        let brushColor = '#000000';
+        let startX, startY;
+
+        // Ajustar el lienzo al tamaño de la ventana
+        window.addEventListener('resize', resizeCanvas, false);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * 2; // canvas más grande para el scroll
+            canvas.height = window.innerHeight * 2;
+        }
+        resizeCanvas();
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', finishDrawing);
+        canvas.addEventListener('mousemove', draw);
+
+        function startDrawing(e) {
+            painting = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            if (currentTool === 'text') {
+                const font = prompt("Introduce la fuente (e.g., Arial):", "Arial");
+                const fontSize = prompt("Introduce el tamaño de la fuente (e.g., 30):", "30");
+                let text = prompt("Introduce el texto:");
+                if (text) {
+                    ctx.font = `${fontSize}px ${font}`;
+                    ctx.fillStyle = brushColor;
+                    ctx.fillText(text, e.clientX, e.clientY);
+                }
+                painting = false;
+            } else if (currentTool === 'eyedropper') {
+                previewColor(e.clientX, e.clientY);
+            } else {
+                draw(e);
+            }
+        }
+
+        function finishDrawing(e) {
+            if (currentTool === 'rectangle') {
+                const width = e.clientX - startX;
+                const height = e.clientY - startY;
+                ctx.strokeStyle = brushColor;
+                ctx.lineWidth = brushSize;
+                ctx.strokeRect(startX, startY, width, height);
+            } else if (currentTool === 'circle') {
+                const radius = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+                ctx.strokeStyle = brushColor;
+                ctx.lineWidth = brushSize;
+                ctx.beginPath();
+                ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            painting = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!painting) return;
+
+            if (currentTool === 'brush' || currentTool === 'eraser' || currentTool === 'pencil') {
+                ctx.lineWidth = brushSize;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : brushColor;
+                ctx.lineTo(e.clientX, e.clientY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(e.clientX, e.clientY);
+            } else if (currentTool === 'airbrush') {
+                for (let i = 0; i < brushSize * 2; i++) {
+                    const offsetX = Math.random() * 20 - 10;
+                    const offsetY = Math.random() * 20 - 10;
+                    ctx.fillStyle = brushColor;
+                    ctx.fillRect(e.clientX + offsetX, e.clientY + offsetY, 1, 1);
+                }
+            }
+        }
+
+        function previewColor(x, y) {
+            const pixelData = ctx.getImageData(x, y, 1, 1).data;
+            const rgbColor = `rgb(${pixelData[0]},${pixelData[1]},${pixelData[2]})`;
+            colorButton.style.backgroundColor = rgbColor;
+            brushColor = rgbColor;
+        }
+
+        clearCanvasButton.addEventListener('click', () => {
+            const confirmClear = confirm("¿Estás seguro de que deseas limpiar el lienzo?");
+            if (confirmClear) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+
+        colorButton.addEventListener('click', () => {
+            colorPicker.click();
+        });
+
+        colorPicker.addEventListener('input', (e) => {
+            brushColor = e.target.value;
+        });
+
+        increaseBrushButton.addEventListener('click', () => {
+            if (brushSize < 50) brushSize += 1;
+            alert(`Tamaño del pincel: ${brushSize}px`);
+        });
+
+        decreaseBrushButton.addEventListener('click', () => {
+            if (brushSize > 1) brushSize -= 1;
+            alert(`Tamaño del pincel: ${brushSize}px`);
+        });
+
+        pencilButton.addEventListener('click', () => {
+            currentTool = 'pencil';
+        });
+
+        eraserButton.addEventListener('click', () => {
+            currentTool = 'eraser';
+        });
+
+        rectangleButton.addEventListener('click', () => {
+            currentTool = 'rectangle';
+        });
+
+        circleButton.addEventListener('click', () => {
+            currentTool = 'circle';
+        });
+
+        textButton.addEventListener('click', () => {
+            currentTool = 'text';
+        });
+
+        airbrushButton.addEventListener('click', () => {
+            currentTool = 'airbrush';
+        });
+
+        eyedropperButton.addEventListener('click', () => {
+            currentTool = 'eyedropper';
+        });
+
+        brushButton.addEventListener('click', () => {
+            currentTool = 'brush';
+        });
+    </script>
+</body>
+</html>

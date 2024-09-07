@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint en línea mejorado</title>
+    <!-- Enlace a Font Awesome para los iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        .toolbar {
+            position: fixed;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        .toolbar button {
+            background: none;
+            border: none;
+            margin: 5px 0;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .toolbar button .tooltip {
+            visibility: hidden;
+            width: 140px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            left: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toolbar button:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #colorPicker {
+            display: none;
+        }
+
+        .brush-size-display {
+            position: fixed;
+            top: 10px;
+            left: 20px;
+            font-size: 16px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 11;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            z-index: 15;
+            padding: 10px;
+        }
+
+        .footer button {
+            background-color: #000;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .page-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            overflow: auto;
+            z-index: 20;
+        }
+
+        .page-content {
+            padding: 20px;
+            font-size: 16px;
+        }
+
+        .close-overlay {
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            background-color: #000;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            z-index: 25;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="toolbar">
+        <button id="clearCanvas">
+            <i class="fas fa-trash-alt fa-2x"></i>
+            <span class="tooltip">Limpiar lienzo</span>
+        </button>
+        <button id="colorButton">
+            <i class="fas fa-palette fa-2x"></i>
+            <span class="tooltip">Elegir color</span>
+        </button>
+        <input type="color" id="colorPicker" value="#000000">
+        <button id="increaseBrush">
+            <i class="fas fa-plus fa-2x"></i>
+            <span class="tooltip">Aumentar pincel</span>
+        </button>
+        <button id="decreaseBrush">
+            <i class="fas fa-minus fa-2x"></i>
+            <span class="tooltip">Disminuir pincel</span>
+        </button>
+        <button id="pencilButton">
+            <i class="fas fa-pencil-alt fa-2x"></i>
+            <span class="tooltip">Lápiz</span>
+        </button>
+        <button id="eraserButton">
+            <i class="fas fa-eraser fa-2x"></i>
+            <span class="tooltip">Borrador</span>
+        </button>
+        <button id="rectangleButton">
+            <i class="fas fa-square fa-2x"></i>
+            <span class="tooltip">Dibujar rectángulo</span>
+        </button>
+        <button id="circleButton">
+            <i class="fas fa-circle fa-2x"></i>
+            <span class="tooltip">Dibujar círculo</span>
+        </button>
+        <button id="textButton">
+            <i class="fas fa-font fa-2x"></i>
+            <span class="tooltip">Agregar texto</span>
+        </button>
+        <button id="airbrushButton">
+            <i class="fas fa-spray-can fa-2x"></i>
+            <span class="tooltip">Aerógrafo</span>
+        </button>
+        <button id="eyedropperButton">
+            <i class="fas fa-eye-dropper fa-2x"></i>
+            <span class="tooltip">Cuentagotas</span>
+        </button>
+        <button id="brushButton">
+            <i class="fas fa-paint-brush fa-2x"></i>
+            <span class="tooltip">Pincel</span>
+        </button>
+    </div>
+    <canvas id="paintCanvas"></canvas>
+
+    <!-- Footer for "Show Page" Button -->
+    <div class="footer">
+        <button id="showPageButton">Show Page</button>
+    </div>
+
+    <!-- Page Overlay with Content -->
+    <div class="page-overlay" id="pageOverlay">
+        <div class="page-content">
+            <h1>Lorem Ipsum</h1>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus
+                ante dapibus diam. Sed nisi.</p>
+            <p>Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim.
+                Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu.</p>
+            <p>In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis
+                pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend
+                tellus.</p>
+            <p>Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Aliquam lorem ante, dapibus in,
+                viverra quis, feugiat a, tellus. Phasellus viverra nulla ut metus varius laoreet. Quisque rutrum.</p>
+            <p>Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi. Nam eget dui.
+                Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, sem quam semper libero, sit amet
+                adipiscing sem neque sed ipsum.</p>
+        </div>
+        <button class="close-overlay" id="closeOverlay">Cerrar</button>
+    </div>
+
+    <div class="brush-size-display" id="brushSizeDisplay">5px</div>
+
+    <script>
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearCanvasButton = document.getElementById('clearCanvas');
+        const colorButton = document.getElementById('colorButton');
+        const increaseBrushButton = document.getElementById('increaseBrush');
+        const decreaseBrushButton = document.getElementById('decreaseBrush');
+        const pencilButton = document.getElementById('pencilButton');
+        const eraserButton = document.getElementById('eraserButton');
+        const rectangleButton = document.getElementById('rectangleButton');
+        const circleButton = document.getElementById('circleButton');
+        const textButton = document.getElementById('textButton');
+        const airbrushButton = document.getElementById('airbrushButton');
+        const eyedropperButton = document.getElementById('eyedropperButton');
+        const brushButton = document.getElementById('brushButton');
+        const brushSizeDisplay = document.getElementById('brushSizeDisplay');
+        const pageOverlay = document.getElementById('pageOverlay');
+        const showPageButton = document.getElementById('showPageButton');
+        const closeOverlayButton = document.getElementById('closeOverlay');
+
+        let painting = false;
+        let currentTool = 'brush';
+        let brushSize = 5;
+        let brushColor = '#000000';
+        let startX, startY;
+        let savedCanvas;  // To save the canvas state before drawing shapes
+
+        // Adjust canvas size
+        window.addEventListener('resize', resizeCanvas, false);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+
+        // Event listeners for drawing
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', finishDrawing);
+        canvas.addEventListener('mousemove', draw);
+
+        function startDrawing(e) {
+            painting = true;
+            startX = e.clientX;
+            startY = e.clientY;
+
+            if (currentTool === 'rectangle' || currentTool === 'circle') {
+                // Save the current canvas state for shapes
+                savedCanvas = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.save(); // Save the current canvas state for freehand tools
+
+            if (currentTool === 'text') {
+                const userInput = prompt("Enter your text:"); // Prompt for text input
+                if (userInput) {
+                    ctx.fillStyle = brushColor;
+                    ctx.font = `${brushSize * 5}px Arial`; // Font size relative to brush size
+                    ctx.fillText(userInput, e.clientX, e.clientY);
+                }
+                painting = false;
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(e.clientX, e.clientY);
+            }
+        }
+
+        function finishDrawing(e) {
+            if (currentTool === 'rectangle') {
+                drawRectangle(e, false); // Finalize the rectangle
+            } else if (currentTool === 'circle') {
+                drawCircle(e, false); // Finalize the circle
+            }
+            painting = false;
+            ctx.closePath();
+            ctx.restore(); // Restore canvas state after drawing
+        }
+
+        function draw(e) {
+            if (!painting) return;
+
+            if (currentTool === 'rectangle') {
+                drawRectangle(e, true); // Draw rectangle while moving
+            } else if (currentTool === 'circle') {
+                drawCircle(e, true); // Draw circle while moving
+            } else if (currentTool === 'eraser') {
+                erase(e);
+            } else if (currentTool === 'pencil') {
+                drawPencil(e);
+            } else if (currentTool === 'brush') {
+                drawBrush(e);
+            } else if (currentTool === 'airbrush') {
+                airbrush(e);
+            }
+        }
+
+        // Freehand drawing for pencil and brush
+        /*
+        function drawFreehand(e) {
+            ctx.strokeStyle = brushColor;
+            ctx.lineWidth = currentTool === 'pencil' ? 1 : brushSize; // Pencil is fixed size
+            ctx.lineCap = 'round'; // Smooth lines
+            ctx.lineTo(e.clientX, e.clientY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX, e.clientY);
+        }*/
+
+        //Pencil tool
+        function drawPencil(e) {
+            const roughness = 1.5; // Control how rough the pencil stroke looks
+            const alpha = Math.random() * 0.3 + 0.7; // Add slight transparency for sketch effect
+
+            ctx.strokeStyle = `rgba(${hexToRgb(brushColor).join(',')}, ${alpha})`;
+            ctx.lineWidth = 1; // Pencil always has a small line width
+            ctx.lineCap = 'round';
+
+            // Create a slight offset for a rough, sketch-like line
+            const offsetX = Math.random() * roughness - roughness / 2;
+            const offsetY = Math.random() * roughness - roughness / 2;
+
+            ctx.lineTo(e.clientX + offsetX, e.clientY + offsetY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX + offsetX, e.clientY + offsetY);
+        }
+
+        //brush Tool
+        function drawBrush(e) {
+            const speed = Math.sqrt((e.movementX ** 2) + (e.movementY ** 2)); // Calculate speed based on mouse movement
+            const maxBrushSize = brushSize; // Maximum brush size based on user setting
+            const minBrushSize = brushSize / 4; // Minimum brush size for tapering effect
+            const dynamicBrushSize = Math.max(minBrushSize, maxBrushSize - speed); // Vary brush size based on speed
+
+            // Create a soft, blending effect with slight opacity
+            const alpha = Math.random() * 0.2 + 0.7; // Opacity variation
+            ctx.strokeStyle = `rgba(${hexToRgb(brushColor).join(',')}, ${alpha})`;
+            ctx.lineWidth = dynamicBrushSize; // Set brush size based on speed
+
+            // Smooth stroke with rounded cap for a more natural brush effect
+            ctx.lineCap = 'round';
+
+            // Draw the line
+            ctx.lineTo(e.clientX, e.clientY);
+            ctx.stroke();
+
+            // Move to the next point for continuous drawing
+            ctx.beginPath();
+            ctx.moveTo(e.clientX, e.clientY);
+        }
+
+
+
+
+        // Eraser tool
+        function erase(e) {
+            const scatterDensity = 20; // Number of scattered eraser chunks
+            const maxEraserSize = brushSize * 2; // Maximum eraser chunk size
+
+            for (let i = 0; i < scatterDensity; i++) {
+                const offsetX = Math.random() * maxEraserSize - maxEraserSize / 2;
+                const offsetY = Math.random() * maxEraserSize - maxEraserSize / 2;
+                const eraserChunkSize = Math.random() * maxEraserSize;
+
+                ctx.clearRect(e.clientX + offsetX, e.clientY + offsetY, eraserChunkSize, eraserChunkSize);
+            }
+        }
+
+
+        // Rectangle tool
+        function drawRectangle(e, isPreview) {
+            const width = e.clientX - startX;
+            const height = e.clientY - startY;
+
+            if (isPreview) {
+                // Restore the canvas state for preview
+                ctx.putImageData(savedCanvas, 0, 0);
+            }
+
+            ctx.strokeStyle = brushColor;
+            ctx.lineWidth = brushSize;
+            ctx.strokeRect(startX, startY, width, height);
+        }
+
+        // Circle tool
+        function drawCircle(e, isPreview) {
+            const radius = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+
+            if (isPreview) {
+                // Restore the canvas state for preview
+                ctx.putImageData(savedCanvas, 0, 0);
+            }
+
+            ctx.strokeStyle = brushColor;
+            ctx.lineWidth = brushSize;
+            ctx.beginPath();
+            ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Airbrush tool (simulates spray paint)
+        function airbrush(e) {
+            const density = 50; // Increase the number of dots per spray
+            const radius = brushSize * 3; // Adjust radius for a more spread out effect
+            const maxDotSize = brushSize / 2; // Max dot size based on brush size
+
+            for (let i = 0; i < density; i++) {
+                const offsetX = Math.random() * radius - radius / 2;
+                const offsetY = Math.random() * radius - radius / 2;
+                if (offsetX ** 2 + offsetY ** 2 <= (radius / 2) ** 2) {
+                    const dotSize = Math.random() * maxDotSize + 1; // Random dot size
+                    const alpha = Math.random() * 0.5 + 0.2; // Random opacity for spray effect
+
+                    ctx.fillStyle = `rgba(${hexToRgb(brushColor).join(',')}, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(e.clientX + offsetX, e.clientY + offsetY, dotSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Helper function to convert hex color to RGB array
+        function hexToRgb(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length == 7) {
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            }
+            return [r, g, b];
+        }
+
+
+        // Eyedropper tool
+        function pickColor(e) {
+            const imageData = ctx.getImageData(e.clientX, e.clientY, 1, 1).data;
+            const pickedColor = `rgb(${imageData[0]}, ${imageData[1]}, ${imageData[2]})`;
+            brushColor = pickedColor;
+            colorPicker.value = rgbToHex(pickedColor); // Update color picker
+            currentTool = 'brush'; // Switch back to brush after picking color
+        }
+
+        // Convert RGB to Hex
+        function rgbToHex(rgb) {
+            const rgbArr = rgb.match(/\d+/g).map(Number);
+            return `#${((1 << 24) + (rgbArr[0] << 16) + (rgbArr[1] << 8) + rgbArr[2]).toString(16).slice(1).toUpperCase()}`;
+        }
+
+        // Update brush size display
+        function updateBrushSizeDisplay() {
+            brushSizeDisplay.textContent = `${brushSize}px`;
+        }
+
+        // Brush size increase
+        increaseBrushButton.addEventListener('click', () => {
+            if (brushSize < 50) brushSize += 1;
+            updateBrushSizeDisplay();
+        });
+
+        // Brush size decrease
+        decreaseBrushButton.addEventListener('click', () => {
+            if (brushSize > 1) brushSize -= 1;
+            updateBrushSizeDisplay();
+        });
+
+        // Show lorem ipsum page overlay
+        showPageButton.addEventListener('click', () => {
+            pageOverlay.style.display = 'block';
+        });
+
+        // Close page overlay
+        closeOverlayButton.addEventListener('click', () => {
+            pageOverlay.style.display = 'none';
+        });
+
+        // Clear the canvas
+        clearCanvasButton.addEventListener('click', () => {
+            const confirmClear = confirm("¿Estás seguro de que deseas limpiar el lienzo?");
+            if (confirmClear) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+
+        // Color picker tool
+        colorButton.addEventListener('click', () => {
+            colorPicker.click();
+        });
+
+        // Change brush color
+        colorPicker.addEventListener('input', (e) => {
+            brushColor = e.target.value;
+        });
+
+        // Tool selection
+        pencilButton.addEventListener('click', () => {
+            currentTool = 'pencil';
+        });
+
+        eraserButton.addEventListener('click', () => {
+            currentTool = 'eraser';
+        });
+
+        rectangleButton.addEventListener('click', () => {
+            currentTool = 'rectangle';
+        });
+
+        circleButton.addEventListener('click', () => {
+            currentTool = 'circle';
+        });
+
+        textButton.addEventListener('click', () => {
+            currentTool = 'text';
+        });
+
+        airbrushButton.addEventListener('click', () => {
+            currentTool = 'airbrush';
+        });
+
+        eyedropperButton.addEventListener('click', () => {
+            currentTool = 'eyedropper';
+        });
+
+        brushButton.addEventListener('click', () => {
+            currentTool = 'brush';
+        });
+    </script>
+
+
+
+
+</body>
+
+</html>
